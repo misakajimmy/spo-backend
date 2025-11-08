@@ -1,0 +1,27 @@
+// Prisma Schema 文件
+// 文档: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// 平台账号表
+model PlatformAccount {
+  id          Int      @id @default(autoincrement())
+  platform    String   // douyin | bilibili | xiaohongshu | kuaishou | tencent | tiktok
+  accountName String   @map("account_name")
+  accountId   String?  @map("account_id")
+  cookiePath  String   @map("cookie_path")
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([platform])
+  @@index([isActive])
+  @@map("platform_accounts")
+}

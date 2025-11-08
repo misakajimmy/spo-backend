@@ -1,0 +1,15 @@
+{
+    "watch": [
+        "src"
+    ],
+    "ext": "ts,json",
+    "ignore": [
+        "dist",
+        "build",
+        "data",
+        "node_modules",
+        "logs",
+        "coverage"
+    ],
+    "exec": "ts-node src/app.ts"
+}

@@ -1,0 +1,5 @@
+{
+  "cookiesStoragePath": "./data/cookies",
+  "enableAutoValidation": false,
+  "validationInterval": 60
+}

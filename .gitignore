@@ -1,0 +1,11 @@
+node_modules/
+dist/
+.env
+.env.test
+data/*.db
+data/test-cookies/
+data/cookies/*.json
+*.log
+.DS_Store
+coverage/
+.vscode/
