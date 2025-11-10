@@ -30,7 +30,8 @@
     "playwright": "^1.40.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
-    "uuid": "^9.0.1"
+    "uuid": "^9.0.1",
+    "webdav": "^5.8.0"
   },
   "devDependencies": {
     "@types/cors": "^2.8.17",
