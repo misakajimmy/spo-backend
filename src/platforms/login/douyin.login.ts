@@ -27,7 +27,8 @@ export class DouyinLogin implements IPlatformLogin {
   }
 
   async getAccountInfo(context: BrowserContext): Promise<PlatformAccountInfo> {
-    const page = context.pages()[0];
+    const page = await context.newPage();
+    await page.goto(DOUYIN_CREATOR_URL, { timeout: 15000 });
     if (!page) {
       return {};
     }
@@ -43,6 +44,7 @@ export class DouyinLogin implements IPlatformLogin {
       const response = await page.request.get('https://creator.douyin.com/aweme/v1/creator/user/info/');
       const data = await response.json();
 
+      console.log(data);
       // 解析响应数据
       if (data?.douyin_user_verify_info) {
         const userInfo = data.douyin_user_verify_info;
@@ -104,41 +106,5 @@ export class DouyinLogin implements IPlatformLogin {
 
     console.log(`✅ 获取到 ${douyinOrigins.length} 个抖音相关 origin 的 localStorage`);
     return douyinOrigins;
-  }
-
-  /**
-   * 解析粉丝数文本为数字
-   * 支持格式：1000, 1.2w, 10.5万, 1.5k 等
-   */
-  private parseFollowersCount(text: string): number | undefined {
-    if (!text) return undefined;
-
-    // 移除空格
-    text = text.trim();
-
-    // 如果是纯数字
-    if (/^\d+$/.test(text)) {
-      return parseInt(text, 10);
-    }
-
-    // 处理带单位的情况
-    const match = text.match(/^([\d.]+)([wWkK万千百]?)$/);
-    if (!match) return undefined;
-
-    const num = parseFloat(match[1]);
-    const unit = match[2].toLowerCase();
-
-    switch (unit) {
-      case 'w':
-      case '万':
-        return Math.floor(num * 10000);
-      case 'k':
-      case '千':
-        return Math.floor(num * 1000);
-      case '百':
-        return Math.floor(num * 100);
-      default:
-        return Math.floor(num);
-    }
   }
 }

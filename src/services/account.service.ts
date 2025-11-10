@@ -147,4 +147,83 @@ export class AccountService {
       filePath: account.cookiePath,
     };
   }
+
+  // 更新单个账号的信息
+  async updateAccountInfo(id: number) {
+    const account = await AccountModel.findById(id);
+    
+    if (!account) {
+      throw new Error('账号不存在');
+    }
+
+    const service = new PlaywrightService();
+    
+    try {
+      // 使用已保存的 Cookie 启动浏览器
+      await service.launchWithCookie(account.platform as Platform, account.cookiePath);
+      
+      // 获取账号信息
+      const accountInfo = await service.getAccountInfo(account.platform as Platform);
+      
+      // 更新数据库
+      const updated = await AccountModel.update(id, {
+        userId: accountInfo.userId || account.userId,
+        username: accountInfo.username || account.username,
+        avatar: accountInfo.avatar || account.avatar,
+        followersCount: accountInfo.followersCount ?? account.followersCount,
+        totalFavorited: accountInfo.totalFavorited ?? account.totalFavorited,
+        description: accountInfo.description || account.description,
+      });
+      
+      await service.closeBrowser();
+      
+      return {
+        account: updated,
+        info: accountInfo,
+        message: `更新成功: ${accountInfo.username || account.accountName}`,
+      };
+    } catch (error) {
+      await service.closeBrowser();
+      throw error;
+    }
+  }
+
+  // 更新所有账号的信息
+  async updateAllAccountsInfo() {
+    const accounts = await AccountModel.findAll();
+    const results = [];
+    
+    for (const account of accounts) {
+      try {
+        console.log(`🔄 正在更新账号: ${account.accountName} (${account.platform})`);
+        const result = await this.updateAccountInfo(account.id);
+        results.push({
+          id: account.id,
+          accountName: account.accountName,
+          platform: account.platform,
+          status: 'success',
+          ...result,
+        });
+      } catch (error: any) {
+        console.error(`❌ 更新账号 ${account.accountName} 失败:`, error.message);
+        results.push({
+          id: account.id,
+          accountName: account.accountName,
+          platform: account.platform,
+          status: 'failed',
+          error: error.message,
+        });
+      }
+    }
+    
+    const successCount = results.filter(r => r.status === 'success').length;
+    const failedCount = results.filter(r => r.status === 'failed').length;
+    
+    return {
+      total: accounts.length,
+      success: successCount,
+      failed: failedCount,
+      results,
+    };
+  }
 }

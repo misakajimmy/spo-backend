@@ -96,4 +96,58 @@ export class PlaywrightService {
   getContext(): BrowserContext | null {
     return this.context;
   }
+
+  // 使用已保存的 Cookie 启动浏览器
+  async launchWithCookie(platform: Platform, cookiePath: string): Promise<BrowserContext> {
+    // 读取 Cookie 文件
+    const cookieData = CookieStorageService.readCookieFile(cookiePath);
+    if (!cookieData) {
+      throw new Error('Cookie 文件读取失败');
+    }
+
+    // 启动浏览器
+    this.browser = await chromium.launch({
+      headless: true,  // 无头模式
+    });
+
+    this.context = await this.browser.newContext();
+
+    // 设置 Cookies
+    if (cookieData.cookies && cookieData.cookies.length > 0) {
+      await this.context.addCookies(cookieData.cookies);
+    }
+
+    // 设置 localStorage
+    if (cookieData.origins && cookieData.origins.length > 0) {
+      for (const originData of cookieData.origins) {
+        const page = await this.context.newPage();
+        await page.goto(originData.origin);
+        
+        // 注入 localStorage
+        for (const item of originData.localStorage) {
+          await page.evaluate(({key, value}) => {
+            // @ts-ignore
+            localStorage.setItem(key, value);
+          }, { key: item.name, value: item.value });
+        }
+        
+        await page.close();
+      }
+    }
+
+    return this.context;
+  }
+
+  // 获取账号信息
+  async getAccountInfo(platform: Platform) {
+    if (!this.context) {
+      throw new Error('浏览器上下文不存在');
+    }
+
+    // 获取登录器
+    const loginHandler = PlatformLoginFactory.getHandler(platform);
+    
+    // 获取账号信息
+    return await loginHandler.getAccountInfo(this.context);
+  }
 }

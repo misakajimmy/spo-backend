@@ -56,6 +56,12 @@ export class AccountModel {
       accountName?: string;
       accountId?: string | null;
       cookiePath?: string;
+      userId?: string | null;
+      username?: string | null;
+      avatar?: string | null;
+      followersCount?: number | null;
+      totalFavorited?: number | null;
+      description?: string | null;
       isActive?: boolean;
     }
   ): Promise<PrismaPlatformAccount> {

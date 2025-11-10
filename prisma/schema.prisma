@@ -12,16 +12,71 @@ datasource db {
 
 // 平台账号表
 model PlatformAccount {
-  id          Int      @id @default(autoincrement())
-  platform    String   // douyin | bilibili | xiaohongshu | kuaishou | tencent | tiktok
-  accountName String   @map("account_name")
-  accountId   String?  @map("account_id")
-  cookiePath  String   @map("cookie_path")
-  isActive    Boolean  @default(true) @map("is_active")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  id             Int      @id @default(autoincrement())
+  platform       String   // douyin | bilibili | xiaohongshu | kuaishou | tencent | tiktok
+  accountName    String   @map("account_name")
+  accountId      String?  @map("account_id")
+  cookiePath     String   @map("cookie_path")
+  
+  // 账号信息 (对应 PlatformAccountInfo)
+  userId         String?  @map("user_id")       // 平台用户ID
+  username       String?  @map("username")      // 用户名/昵称  
+  avatar         String?  @map("avatar")        // 头像URL
+  followersCount Int?     @map("followers_count") // 粉丝数
+  totalFavorited Int?     @map("total_favorited") // 获赞数
+  description    String?  @map("description")   // 简介
+  
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
 
   @@index([platform])
   @@index([isActive])
+  @@index([userId])
   @@map("platform_accounts")
+}
+
+// 资源库连接配置
+model ResourceLibrary {
+  id          Int      @id @default(autoincrement())
+  name        String   // 资源库名称
+  type        String   // local | webdav | smb | ftp
+  config      String   // 连接配置 (JSON字符串)
+  isActive    Boolean  @default(true) @map("is_active")
+  isDefault   Boolean  @default(false) @map("is_default")
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  @@index([type])
+  @@index([isDefault])
+  @@map("resource_libraries")
+}
+
+// 上传任务表（关联资源库中的资源）
+model UploadTask {
+  id            Int      @id @default(autoincrement())
+  platformId    Int      @map("platform_id")    // 平台账号ID
+  
+  // 资源信息
+  resourcePath  String   @map("resource_path")  // 资源在库中的路径
+  resourceType  String   @map("resource_type")  // video | image | audio
+  libraryId     Int      @map("library_id")     // 资源库ID
+  
+  // 上传信息
+  title         String   // 发布标题
+  description   String?  // 发布描述
+  tags          String   @default("") // 标签 (逗号分隔的字符串)
+  
+  // 任务状态
+  status        String   @default("pending")     // pending | processing | success | failed
+  scheduledAt   DateTime? @map("scheduled_at")   // 计划上传时间
+  uploadedAt    DateTime? @map("uploaded_at")    // 实际上传时间
+  
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  
+  @@index([platformId])
+  @@index([status])
+  @@map("upload_tasks")
 }
