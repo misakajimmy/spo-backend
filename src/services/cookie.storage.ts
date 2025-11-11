@@ -52,13 +52,24 @@ export class CookieStorageService {
 
     try {
       const content = fs.readFileSync(filePath, 'utf-8');
-      const data: CookieFileData = JSON.parse(content);
-      
-      // 验证数据结构
-      if (!data.platform || !Array.isArray(data.cookies)) {
-        console.error('❌ Cookie 文件格式错误');
+      const rawData = JSON.parse(content);
+
+      if (!rawData || typeof rawData !== 'object') {
+        console.error('❌ Cookie 文件格式错误: 数据不是对象');
         return null;
       }
+
+      if (!Array.isArray(rawData.cookies)) {
+        console.error('❌ Cookie 文件格式错误: cookies 字段缺失或类型错误');
+        return null;
+      }
+
+      const data: CookieFileData = {
+        platform: typeof rawData.platform === 'string' && rawData.platform.length > 0 ? rawData.platform : 'unknown',
+        id: typeof rawData.id === 'string' ? rawData.id : '',
+        cookies: rawData.cookies,
+        origins: Array.isArray(rawData.origins) ? rawData.origins : [],
+      };
 
       return data;
     } catch (error) {

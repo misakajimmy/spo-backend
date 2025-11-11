@@ -39,6 +39,9 @@ export class UploadService {
           status: 'pending',
           scheduledAt: data.scheduledAt,
         },
+        include: {
+          account: true,
+        },
       });
       
       return task;
@@ -64,6 +67,9 @@ export class UploadService {
         orderBy: {
           createdAt: 'desc',
         },
+        include: {
+          account: true,
+        },
       });
       
       return tasks;
@@ -80,6 +86,9 @@ export class UploadService {
     try {
       const task = await prisma.uploadTask.findUnique({
         where: { id: taskId },
+        include: {
+          account: true,
+        },
       });
       
       return task;
@@ -150,7 +159,7 @@ export class UploadService {
       }
       
       // 3. 获取平台账号信息
-      const account = await prisma.platformAccount.findUnique({
+      const account = task.account ?? await prisma.platformAccount.findUnique({
         where: { id: task.platformId },
       });
       

@@ -47,6 +47,27 @@ export interface PlatformAccountInfo {
   description?: string;  // 简介
 }
 
+// 平台视频统计数据
+export interface PlatformVideoMetrics {
+  playCount?: number;
+  diggCount?: number;
+  commentCount?: number;
+  shareCount?: number;
+  collectCount?: number;
+  [key: string]: any;
+}
+
+export interface PlatformVideoData {
+  videoId: string;
+  title?: string;
+  coverUrl?: string;
+  duration?: number;
+  publishTime?: Date;
+  status?: string;
+  metrics: PlatformVideoMetrics;
+  extra?: any;
+}
+
 // 平台登录器接口
 export interface IPlatformLogin {
   platform: Platform;
@@ -65,6 +86,19 @@ export interface IPlatformLogin {
   
   // 获取 localStorage 数据（可选实现）
   getLocalStorage?(context: BrowserContext): Promise<OriginData[]>;
+}
+
+// 平台账号视频统计采集接口
+export interface IPlatformVideoStatsCollector {
+  platform: Platform;
+  fetchVideoStats(
+    context: BrowserContext,
+    options?: {
+      status?: number;
+      maxCursor?: number;
+      limit?: number;
+    }
+  ): Promise<PlatformVideoData[]>;
 }
 
 // 平台上传器接口（未来扩展）

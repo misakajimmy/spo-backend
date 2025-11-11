@@ -1,11 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { AccountService } from '../services/account.service';
+import { AccountStatsService } from '../services/account-stats.service';
 import { success, error } from '../utils/response';
 import { Platform } from '../types';
 import { PlatformRegistry } from '../platforms';
 
 const router = Router();
 const accountService = new AccountService();
+const accountStatsService = new AccountStatsService();
 
 // ===== 平台管理 =====
 
@@ -563,6 +565,123 @@ router.post('/accounts/update-all-info', async (req: Request, res: Response) => 
   try {
     const result = await accountService.updateAllAccountsInfo();
     res.json(success(result, `更新完成: 成功 ${result.success} 个，失败 ${result.failed} 个`));
+  } catch (err: any) {
+    res.status(500).json(error(err.message, 500));
+  }
+});
+
+/**
+ * @swagger
+ * /api/accounts/{id}/videos:
+ *   get:
+ *     summary: 获取账号的视频统计数据
+ *     tags: [Account]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 账号ID
+ *     responses:
+ *       200:
+ *         description: 成功
+ */
+router.get('/accounts/:id/videos', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const data = await accountStatsService.getAccountVideos(id);
+    res.json(success(data));
+  } catch (err: any) {
+    res.status(500).json(error(err.message, 500));
+  }
+});
+
+/**
+ * @swagger
+ * /api/accounts/{id}/update-video-stats:
+ *   post:
+ *     summary: 更新单个账号的视频统计
+ *     description: 从平台拉取最新的作品数据并同步至本地数据库
+ *     tags: [Account]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 账号ID
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: integer
+ *                 description: 作品状态过滤（抖音默认0表示全部）
+ *               limit:
+ *                 type: integer
+ *                 description: 限制同步作品数量
+ *     responses:
+ *       200:
+ *         description: 更新成功
+ */
+router.post('/accounts/:id/update-video-stats', async (req: Request, res: Response) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { status, limit } = req.body || {};
+    const parsedStatus = status !== undefined ? Number(status) : undefined;
+    const parsedLimit = limit !== undefined ? Number(limit) : undefined;
+    const result = await accountStatsService.updateAccountVideoStats(id, {
+      status: parsedStatus !== undefined && !Number.isNaN(parsedStatus) ? parsedStatus : undefined,
+      limit: parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? parsedLimit : undefined,
+    });
+    res.json(success(result, '视频数据更新成功'));
+  } catch (err: any) {
+    res.status(500).json(error(err.message, 500));
+  }
+});
+
+/**
+ * @swagger
+ * /api/accounts/update-all-video-stats:
+ *   post:
+ *     summary: 更新所有账号的视频统计
+ *     tags: [Account]
+ *     requestBody:
+ *       required: false
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               platform:
+ *                 type: string
+ *                 enum: [douyin, bilibili, xiaohongshu, kuaishou, tencent, tiktok]
+ *                 description: 只同步指定平台
+ *               status:
+ *                 type: integer
+ *                 description: 作品状态过滤（平台自定义）
+ *               limitPerAccount:
+ *                 type: integer
+ *                 description: 每个账号同步的最大作品数
+ *     responses:
+ *       200:
+ *         description: 更新完成
+ */
+router.post('/accounts/update-all-video-stats', async (req: Request, res: Response) => {
+  try {
+    const { platform, status, limitPerAccount } = req.body || {};
+    const parsedStatus = status !== undefined ? Number(status) : undefined;
+    const parsedLimit = limitPerAccount !== undefined ? Number(limitPerAccount) : undefined;
+    const result = await accountStatsService.updateAllAccountsVideoStats({
+      platform: typeof platform === 'string' ? (platform as Platform) : undefined,
+      status: parsedStatus !== undefined && !Number.isNaN(parsedStatus) ? parsedStatus : undefined,
+      limitPerAccount: parsedLimit !== undefined && !Number.isNaN(parsedLimit) ? parsedLimit : undefined,
+    });
+    res.json(success(result, `同步完成: 成功 ${result.success} 个，失败 ${result.failed} 个`));
   } catch (err: any) {
     res.status(500).json(error(err.message, 500));
   }

@@ -30,6 +30,9 @@ model PlatformAccount {
   createdAt      DateTime @default(now()) @map("created_at")
   updatedAt      DateTime @updatedAt @map("updated_at")
 
+  uploadTasks    UploadTask[]
+  videos         AccountVideo[]
+
   @@index([platform])
   @@index([isActive])
   @@index([userId])
@@ -58,6 +61,8 @@ model UploadTask {
   id            Int      @id @default(autoincrement())
   platformId    Int      @map("platform_id")    // 平台账号ID
   
+  account       PlatformAccount @relation(fields: [platformId], references: [id])
+
   // 资源信息
   resourcePath  String   @map("resource_path")  // 资源在库中的路径
   resourceType  String   @map("resource_type")  // video | image | audio
@@ -79,4 +84,30 @@ model UploadTask {
   @@index([platformId])
   @@index([status])
   @@map("upload_tasks")
+}
+
+// 账号视频数据
+model AccountVideo {
+  id                 Int      @id @default(autoincrement())
+  platformAccountId  Int      @map("platform_account_id")  // 平台账号ID
+  videoId            String   @map("video_id")             // 视频唯一ID
+  title              String
+  coverUrl           String?  @map("cover_url")            // 封面URL
+  duration           Int?                                   // 时长（秒）
+  publishTime        DateTime? @map("publish_time")        // 发布时间
+  status             String?                               // 视频状态
+  playCount          Int?     @map("play_count")           // 播放量
+  diggCount          Int?     @map("digg_count")           // 点赞数
+  commentCount       Int?     @map("comment_count")        // 评论数
+  shareCount         Int?     @map("share_count")          // 分享数
+  collectCount       Int?     @map("collect_count")        // 收藏数
+  extra              String?  @map("extra")                // 额外数据(JSON字符串)
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  account            PlatformAccount @relation(fields: [platformAccountId], references: [id], onDelete: Cascade)
+
+  @@unique([platformAccountId, videoId])
+  @@index([platformAccountId])
+  @@map("account_videos")
 }
