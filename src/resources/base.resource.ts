@@ -19,10 +19,52 @@ export abstract class BaseResourceLibrary implements IResourceLibrary {
   abstract getInfo(filePath: string): Promise<ResourceInfo>;
   abstract getAccessPath(filePath: string): Promise<string>;
   
+  // 获取文件读取流（用于预览和下载）
+  abstract getReadStream(filePath: string, options?: { start?: number; end?: number }): Promise<NodeJS.ReadableStream>;
+  
+  // 获取文件的 MIME 类型
+  abstract getMimeType(filePath: string): Promise<string>;
+  
   // 通用方法：判断文件类型
   protected isVideo(ext: string): boolean {
     const videoExts = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.m4v', '.mpg', '.mpeg'];
     return videoExts.includes(ext.toLowerCase());
+  }
+  
+  // 根据扩展名获取 MIME 类型
+  protected getMimeTypeByExt(ext: string): string {
+    const mimeTypes: Record<string, string> = {
+      // 视频
+      '.mp4': 'video/mp4',
+      '.avi': 'video/x-msvideo',
+      '.mov': 'video/quicktime',
+      '.mkv': 'video/x-matroska',
+      '.flv': 'video/x-flv',
+      '.wmv': 'video/x-ms-wmv',
+      '.webm': 'video/webm',
+      '.m4v': 'video/x-m4v',
+      '.mpg': 'video/mpeg',
+      '.mpeg': 'video/mpeg',
+      // 图片
+      '.jpg': 'image/jpeg',
+      '.jpeg': 'image/jpeg',
+      '.png': 'image/png',
+      '.gif': 'image/gif',
+      '.bmp': 'image/bmp',
+      '.webp': 'image/webp',
+      '.svg': 'image/svg+xml',
+      '.ico': 'image/x-icon',
+      // 音频
+      '.mp3': 'audio/mpeg',
+      '.wav': 'audio/wav',
+      '.flac': 'audio/flac',
+      '.aac': 'audio/aac',
+      '.ogg': 'audio/ogg',
+      '.wma': 'audio/x-ms-wma',
+      '.m4a': 'audio/mp4',
+    };
+    
+    return mimeTypes[ext.toLowerCase()] || 'application/octet-stream';
   }
   
   protected isImage(ext: string): boolean {

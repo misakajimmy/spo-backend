@@ -7,6 +7,7 @@ import swaggerOptions from './config/swagger';
 import accountRoutes from './routes/account.routes';
 import configRoutes from './routes/config.routes';
 import resourceRoutes from './routes/resource.routes';
+import uploadRoutes from './routes/upload.routes';
 
 // 创建 Express 应用
 const app = express();
@@ -32,6 +33,7 @@ app.use('/api-docs', swaggerUi.serve as unknown as express.RequestHandler, swagg
 app.use('/api', accountRoutes);
 app.use('/api', configRoutes);
 app.use('/api/resources', resourceRoutes);
+app.use('/api/upload', uploadRoutes);
 
 /**
  * @swagger

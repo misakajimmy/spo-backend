@@ -188,6 +188,23 @@ export class WebDAVResourceLibrary extends BaseResourceLibrary {
     return '';
   }
   
+  async getReadStream(
+    filePath: string,
+    options?: { start?: number; end?: number }
+  ): Promise<NodeJS.ReadableStream> {
+    const fullPath = this.normalizePath(path.join(this.basePath, filePath));
+    
+    // WebDAV 客户端返回 Stream
+    const stream = this.client.createReadStream(fullPath, options as any);
+    
+    return stream as NodeJS.ReadableStream;
+  }
+  
+  async getMimeType(filePath: string): Promise<string> {
+    const ext = path.extname(filePath);
+    return this.getMimeTypeByExt(ext);
+  }
+  
   /**
    * 检查是否为 ResponseDataDetailed 类型
    */

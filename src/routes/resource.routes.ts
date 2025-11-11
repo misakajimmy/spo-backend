@@ -524,4 +524,166 @@ router.post('/batch-info/:libraryId', async (req: Request, res: Response) => {
   }
 });
 
+// ===== 资源预览和下载 =====
+
+/**
+ * @swagger
+ * /api/resources/preview/{libraryId}:
+ *   get:
+ *     summary: 预览资源（流式传输）
+ *     tags: [Resource Preview]
+ *     description: |
+ *       通过流式传输预览资源文件，支持 HTTP Range 请求。
+ *       适用于视频、音频和图片的在线预览。
+ *       视频可直接在浏览器 <video> 标签中使用此URL播放。
+ *     parameters:
+ *       - in: path
+ *         name: libraryId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 资源库ID
+ *       - in: query
+ *         name: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 资源路径
+ *         example: /videos/demo.mp4
+ *       - in: header
+ *         name: Range
+ *         schema:
+ *           type: string
+ *         description: Range 请求头（可选，浏览器自动添加）
+ *         example: bytes=0-1023
+ *     responses:
+ *       200:
+ *         description: 完整资源内容
+ *       206:
+ *         description: 部分资源内容（Range 请求）
+ *         headers:
+ *           Content-Range:
+ *             schema:
+ *               type: string
+ *           Accept-Ranges:
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: 缺少资源路径
+ *       404:
+ *         description: 资源不存在
+ */
+router.get('/preview/:libraryId', async (req: Request, res: Response) => {
+  try {
+    const libraryId = parseInt(req.params.libraryId);
+    const { path } = req.query;
+    
+    if (!path) {
+      return res.status(400).json(error('缺少资源路径'));
+    }
+    
+    // 获取资源信息
+    const info = await resourceService.getResourceInfo(libraryId, path as string);
+    const mimeType = await resourceService.getResourceMimeType(libraryId, path as string);
+    const range = req.headers.range;
+    
+    // 支持 Range 请求（视频/音频播放必需）
+    if (range && info.size) {
+      const parts = range.replace(/bytes=/, '').split('-');
+      const start = parseInt(parts[0], 10);
+      const end = parts[1] ? parseInt(parts[1], 10) : info.size - 1;
+      const chunksize = (end - start) + 1;
+      
+      const stream = await resourceService.getResourceStream(
+        libraryId,
+        path as string,
+        { start, end }
+      );
+      
+      res.writeHead(206, {
+        'Content-Range': `bytes ${start}-${end}/${info.size}`,
+        'Accept-Ranges': 'bytes',
+        'Content-Length': chunksize,
+        'Content-Type': mimeType,
+      });
+      
+      stream.pipe(res);
+    } else {
+      // 完整文件
+      const stream = await resourceService.getResourceStream(libraryId, path as string);
+      
+      res.writeHead(200, {
+        'Content-Length': info.size || 0,
+        'Content-Type': mimeType,
+      });
+      
+      stream.pipe(res);
+    }
+  } catch (err: any) {
+    res.status(500).json(error(err.message, 500));
+  }
+});
+
+/**
+ * @swagger
+ * /api/resources/download/{libraryId}:
+ *   get:
+ *     summary: 下载资源
+ *     tags: [Resource Preview]
+ *     description: 下载指定的资源文件
+ *     parameters:
+ *       - in: path
+ *         name: libraryId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 资源库ID
+ *       - in: query
+ *         name: path
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: 资源路径
+ *         example: /videos/demo.mp4
+ *     responses:
+ *       200:
+ *         description: 文件下载
+ *         headers:
+ *           Content-Disposition:
+ *             schema:
+ *               type: string
+ *           Content-Type:
+ *             schema:
+ *               type: string
+ *       400:
+ *         description: 缺少资源路径
+ *       404:
+ *         description: 资源不存在
+ */
+router.get('/download/:libraryId', async (req: Request, res: Response) => {
+  try {
+    const libraryId = parseInt(req.params.libraryId);
+    const { path } = req.query;
+    
+    if (!path) {
+      return res.status(400).json(error('缺少资源路径'));
+    }
+    
+    // 获取资源信息
+    const info = await resourceService.getResourceInfo(libraryId, path as string);
+    const mimeType = await resourceService.getResourceMimeType(libraryId, path as string);
+    const stream = await resourceService.getResourceStream(libraryId, path as string);
+    
+    // 设置下载头
+    res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(info.name)}"`);
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Length', info.size || 0);
+    
+    // 传输文件流
+    stream.pipe(res);
+  } catch (err: any) {
+    res.status(500).json(error(err.message, 500));
+  }
+});
+
 export default router;

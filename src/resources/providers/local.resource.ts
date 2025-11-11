@@ -169,4 +169,20 @@ export class LocalResourceLibrary extends BaseResourceLibrary {
     // 返回默认缩略图或生成缩略图（后续实现）
     return '';
   }
+  
+  async getReadStream(
+    filePath: string,
+    options?: { start?: number; end?: number }
+  ): Promise<NodeJS.ReadableStream> {
+    const fullPath = path.join(this.basePath, filePath);
+    const fsSync = await import('fs');
+    
+    // 创建文件读取流，支持 Range 请求
+    return fsSync.createReadStream(fullPath, options);
+  }
+  
+  async getMimeType(filePath: string): Promise<string> {
+    const ext = path.extname(filePath);
+    return this.getMimeTypeByExt(ext);
+  }
 }

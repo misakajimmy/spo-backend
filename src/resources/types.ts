@@ -39,6 +39,12 @@ export interface IResourceLibrary {
   // 获取资源访问路径/URL
   getAccessPath(path: string): Promise<string>;
   
+  // 获取文件读取流（用于预览和下载）
+  getReadStream(filePath: string, options?: { start?: number; end?: number }): Promise<NodeJS.ReadableStream>;
+  
+  // 获取文件的 MIME 类型
+  getMimeType(filePath: string): Promise<string>;
+  
   // 获取缩略图（如果支持）
   getThumbnail?(path: string): Promise<string | Buffer>;
 }

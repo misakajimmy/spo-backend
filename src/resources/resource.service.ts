@@ -207,4 +207,23 @@ export class ResourceService {
     
     return results;
   }
+  
+  // 获取资源读取流（用于预览和下载）
+  async getResourceStream(
+    libraryId: number,
+    path: string,
+    options?: { start?: number; end?: number }
+  ): Promise<NodeJS.ReadableStream> {
+    const instance = await ResourceService.getLibraryInstance(libraryId);
+    return await instance.getReadStream(path, options);
+  }
+  
+  // 获取资源 MIME 类型
+  async getResourceMimeType(
+    libraryId: number,
+    path: string
+  ): Promise<string> {
+    const instance = await ResourceService.getLibraryInstance(libraryId);
+    return await instance.getMimeType(path);
+  }
 }

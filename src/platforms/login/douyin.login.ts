@@ -52,7 +52,7 @@ export class DouyinLogin implements IPlatformLogin {
           userId: userInfo.douyin_unique_id,
           username: userInfo.nick_name,
           avatar: userInfo.avatar_url,
-          followersCount: userInfo.following_count,
+          followersCount: userInfo.follower_count,
           totalFavorited: userInfo.total_favorited,
           description: data?.user_profile?.signature,
         };
