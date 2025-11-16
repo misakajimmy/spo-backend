@@ -550,6 +550,27 @@ router.post('/batch-info/:libraryId', async (req: Request, res: Response) => {
  *           type: string
  *         description: 资源路径
  *         example: /videos/demo.mp4
+ *       - in: query
+ *         name: thumbnail
+ *         required: false
+ *         schema:
+ *           type: string
+ *         description: 是否生成缩略图（仅视频有效）
+ *         example: true
+ *       - in: query
+ *         name: time
+ *         required: false
+ *         schema:
+ *           type: number
+ *         description: 缩略图时间点（秒，默认视频中间位置）
+ *         example: 2.5
+ *       - in: query
+ *         name: width
+ *         required: false
+ *         schema:
+ *           type: number
+ *         description: 缩略图宽度（像素，保持比例缩放）
+ *         example: 320
  *       - in: header
  *         name: Range
  *         schema:
@@ -576,7 +597,7 @@ router.post('/batch-info/:libraryId', async (req: Request, res: Response) => {
 router.get('/preview/:libraryId', async (req: Request, res: Response) => {
   try {
     const libraryId = parseInt(req.params.libraryId);
-    const { path } = req.query;
+    const { path, thumbnail, time, width } = req.query;
     
     if (!path) {
       return res.status(400).json(error('缺少资源路径'));
@@ -586,6 +607,24 @@ router.get('/preview/:libraryId', async (req: Request, res: Response) => {
     const info = await resourceService.getResourceInfo(libraryId, path as string);
     const mimeType = await resourceService.getResourceMimeType(libraryId, path as string);
     const range = req.headers.range;
+
+    // 如果请求缩略图，并且是视频类型，则生成并返回缩略图
+    if ((thumbnail === '1' || thumbnail === 'true') && mimeType.startsWith('video/')) {
+      try {
+        const timeSeconds = time ? parseFloat(String(time)) : undefined;
+        const thumbWidth = width ? parseInt(String(width), 10) : undefined;
+        const buffer = await resourceService.getVideoThumbnail(
+          libraryId,
+          path as string,
+          { timeSeconds, width: thumbWidth }
+        );
+        res.setHeader('Content-Type', 'image/jpeg');
+        res.setHeader('Content-Length', buffer.length);
+        return res.status(200).end(buffer);
+      } catch (e: any) {
+        return res.status(500).json(error(e.message || '生成缩略图失败', 500));
+      }
+    }
     
     // 支持 Range 请求（视频/音频播放必需）
     if (range && info.size) {

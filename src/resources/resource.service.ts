@@ -8,6 +8,9 @@ import {
   BrowseOptions,
   SearchOptions
 } from './types';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
+import { Readable } from 'stream';
 
 export class ResourceService {
   private static libraryInstances: Map<number, IResourceLibrary> = new Map();
@@ -225,5 +228,43 @@ export class ResourceService {
   ): Promise<string> {
     const instance = await ResourceService.getLibraryInstance(libraryId);
     return await instance.getMimeType(path);
+  }
+
+  // 生成视频缩略图（JPEG Buffer）
+  async getVideoThumbnail(
+    libraryId: number,
+    path: string,
+    options?: { timeSeconds?: number; width?: number }
+  ): Promise<Buffer> {
+    const timeSeconds = options?.timeSeconds ?? 1;
+    const width = options?.width ?? 320;
+    
+    const inputStream = await this.getResourceStream(libraryId, path);
+    
+    if (ffmpegStatic) {
+      ffmpeg.setFfmpegPath(ffmpegStatic as unknown as string);
+    }
+    
+    return await new Promise<Buffer>((resolve, reject) => {
+      const chunks: Buffer[] = [];
+      
+      // 使用 Readable.from 确保是可消费的 Node Readable
+      const readable = (inputStream as any).readable ? (inputStream as NodeJS.ReadableStream) : Readable.from(inputStream as any);
+      
+      const command = ffmpeg(readable as any)
+        .seekInput(Math.max(0, timeSeconds))
+        .frames(1)
+        .outputOptions([
+          '-vf', `scale=${width}:-1`,
+          '-f', 'image2',
+        ])
+        .toFormat('mjpeg')
+        .on('error', (err) => reject(err))
+        .on('end', () => resolve(Buffer.concat(chunks)));
+      
+      const out = command.pipe();
+      out.on('data', (chunk: Buffer) => chunks.push(chunk));
+      out.on('error', (err: any) => reject(err));
+    });
   }
 }
