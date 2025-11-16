@@ -47,6 +47,20 @@ export interface IResourceLibrary {
   
   // 获取缩略图（如果支持）
   getThumbnail?(path: string): Promise<string | Buffer>;
+  
+  // ===== 文件操作功能 =====
+  
+  // 创建文件夹
+  createFolder(folderPath: string): Promise<void>;
+  
+  // 删除文件或文件夹
+  delete(path: string, recursive?: boolean): Promise<void>;
+  
+  // 重命名文件或文件夹
+  rename(oldPath: string, newName: string): Promise<void>;
+  
+  // 移动文件或文件夹
+  move(sourcePath: string, targetPath: string): Promise<void>;
 }
 
 // 资源库配置

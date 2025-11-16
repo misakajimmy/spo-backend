@@ -25,6 +25,12 @@ export abstract class BaseResourceLibrary implements IResourceLibrary {
   // 获取文件的 MIME 类型
   abstract getMimeType(filePath: string): Promise<string>;
   
+  // 文件操作
+  abstract createFolder(folderPath: string): Promise<void>;
+  abstract delete(path: string, recursive?: boolean): Promise<void>;
+  abstract rename(oldPath: string, newName: string): Promise<void>;
+  abstract move(sourcePath: string, targetPath: string): Promise<void>;
+  
   // 通用方法：判断文件类型
   protected isVideo(ext: string): boolean {
     const videoExts = ['.mp4', '.avi', '.mov', '.mkv', '.flv', '.wmv', '.webm', '.m4v', '.mpg', '.mpeg'];

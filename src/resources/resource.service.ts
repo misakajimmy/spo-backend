@@ -13,7 +13,7 @@ export class ResourceService {
   private static libraryInstances: Map<number, IResourceLibrary> = new Map();
   
   // 获取资源库实例（带缓存）
-  private static async getLibraryInstance(libraryId: number): Promise<IResourceLibrary> {
+  static async getLibraryInstance(libraryId: number): Promise<IResourceLibrary> {
     // 检查缓存
     if (this.libraryInstances.has(libraryId)) {
       return this.libraryInstances.get(libraryId)!;

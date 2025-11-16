@@ -185,4 +185,114 @@ export class LocalResourceLibrary extends BaseResourceLibrary {
     const ext = path.extname(filePath);
     return this.getMimeTypeByExt(ext);
   }
+  
+  /**
+   * 创建文件夹
+   */
+  async createFolder(folderPath: string): Promise<void> {
+    const fullPath = path.join(this.basePath, folderPath);
+    
+    try {
+      await fs.mkdir(fullPath, { recursive: true });
+      console.log(`✅ 文件夹创建成功: ${folderPath}`);
+    } catch (error) {
+      console.error(`❌ 创建文件夹失败: ${folderPath}`, error);
+      throw new Error(`创建文件夹失败: ${folderPath}`);
+    }
+  }
+  
+  /**
+   * 删除文件或文件夹
+   */
+  async delete(filePath: string, recursive: boolean = false): Promise<void> {
+    const fullPath = path.join(this.basePath, filePath);
+    
+    try {
+      const stats = await fs.stat(fullPath);
+      
+      if (stats.isDirectory()) {
+        // 删除文件夹
+        if (recursive) {
+          await fs.rm(fullPath, { recursive: true, force: true });
+          console.log(`✅ 文件夹已删除: ${filePath}`);
+        } else {
+          // 检查是否为空
+          const items = await fs.readdir(fullPath);
+          if (items.length > 0) {
+            throw new Error('文件夹不为空，请使用 recursive 选项');
+          }
+          await fs.rmdir(fullPath);
+          console.log(`✅ 空文件夹已删除: ${filePath}`);
+        }
+      } else {
+        // 删除文件
+        await fs.unlink(fullPath);
+        console.log(`✅ 文件已删除: ${filePath}`);
+      }
+    } catch (error) {
+      console.error(`❌ 删除失败: ${filePath}`, error);
+      throw new Error(`删除失败: ${filePath}`);
+    }
+  }
+  
+  /**
+   * 重命名文件或文件夹
+   */
+  async rename(oldPath: string, newName: string): Promise<void> {
+    const fullOldPath = path.join(this.basePath, oldPath);
+    const directory = path.dirname(fullOldPath);
+    const fullNewPath = path.join(directory, newName);
+    
+    try {
+      // 检查新名称是否已存在
+      try {
+        await fs.access(fullNewPath);
+        throw new Error(`目标名称已存在: ${newName}`);
+      } catch (error: any) {
+        if (error.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+      
+      await fs.rename(fullOldPath, fullNewPath);
+      console.log(`✅ 重命名成功: ${oldPath} -> ${newName}`);
+    } catch (error) {
+      console.error(`❌ 重命名失败: ${oldPath}`, error);
+      throw error;
+    }
+  }
+  
+  /**
+   * 移动文件或文件夹
+   */
+  async move(sourcePath: string, targetPath: string): Promise<void> {
+    const fullSourcePath = path.join(this.basePath, sourcePath);
+    const fullTargetPath = path.join(this.basePath, targetPath);
+    
+    try {
+      // 检查源文件是否存在
+      await fs.access(fullSourcePath);
+      
+      // 检查目标是否已存在
+      try {
+        await fs.access(fullTargetPath);
+        throw new Error(`目标路径已存在: ${targetPath}`);
+      } catch (error: any) {
+        if (error.code !== 'ENOENT') {
+          throw error;
+        }
+      }
+      
+      // 确保目标目录存在
+      const targetDir = path.dirname(fullTargetPath);
+      await fs.mkdir(targetDir, { recursive: true });
+      
+      // 移动文件或文件夹
+      await fs.rename(fullSourcePath, fullTargetPath);
+      console.log(`✅ 移动成功: ${sourcePath} -> ${targetPath}`);
+    } catch (error) {
+      console.error(`❌ 移动失败: ${sourcePath}`, error);
+      throw error;
+    }
+  }
 }

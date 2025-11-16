@@ -32,6 +32,7 @@ model PlatformAccount {
 
   uploadTasks    UploadTask[]
   videos         AccountVideo[]
+  themeAccounts  ThemeAccount[]  // 主题库关联
 
   @@index([platform])
   @@index([isActive])
@@ -110,4 +111,56 @@ model AccountVideo {
   @@unique([platformAccountId, videoId])
   @@index([platformAccountId])
   @@map("account_videos")
+}
+
+// 主题库
+model Theme {
+  id               Int      @id @default(autoincrement())
+  name             String   // 主题库名称
+  description      String?  // 主题库简介
+  archiveFolderName String  @default("published") @map("archive_folder_name") // 归档文件夹名称
+  
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  
+  // 关联
+  themeAccounts    ThemeAccount[]     // 关联的账号
+  resourcePaths    ThemeResourcePath[] // 资源路径
+  
+  @@map("themes")
+}
+
+// 主题库与账号的关联表(多对多)
+model ThemeAccount {
+  id        Int      @id @default(autoincrement())
+  themeId   Int      @map("theme_id")
+  accountId Int      @map("account_id")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  theme     Theme           @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  account   PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  @@unique([themeId, accountId])
+  @@index([themeId])
+  @@index([accountId])
+  @@map("theme_accounts")
+}
+
+// 主题资源路径
+model ThemeResourcePath {
+  id          Int      @id @default(autoincrement())
+  themeId     Int      @map("theme_id")     // 主题库ID
+  libraryId   Int      @map("library_id")   // 资源库ID
+  folderPath  String   @map("folder_path")  // 文件夹路径
+  
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  
+  theme       Theme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  
+  @@unique([themeId, libraryId, folderPath])
+  @@index([themeId])
+  @@index([libraryId])
+  @@map("theme_resource_paths")
 }

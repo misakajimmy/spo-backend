@@ -206,6 +206,118 @@ export class WebDAVResourceLibrary extends BaseResourceLibrary {
   }
   
   /**
+   * 创建文件夹
+   */
+  async createFolder(folderPath: string): Promise<void> {
+    const fullPath = this.normalizePath(path.join(this.basePath, folderPath));
+    
+    try {
+      await this.client.createDirectory(fullPath);
+      console.log(`✅ 文件夹创建成功: ${folderPath}`);
+    } catch (error) {
+      console.error(`❌ 创建文件夹失败: ${folderPath}`, error);
+      throw new Error(`创建文件夹失败: ${folderPath}`);
+    }
+  }
+  
+  /**
+   * 删除文件或文件夹
+   */
+  async delete(filePath: string, recursive: boolean = false): Promise<void> {
+    const fullPath = this.normalizePath(path.join(this.basePath, filePath));
+    
+    try {
+      const stat = await this.client.stat(fullPath) as FileStat;
+      
+      if (stat.type === 'directory') {
+        // WebDAV deleteFile 对目录默认是递归删除
+        if (!recursive) {
+          // 检查是否为空目录
+          const contents = await this.client.getDirectoryContents(fullPath);
+          const items = this.isResponseDataDetailed(contents) ? contents.data : contents;
+          if (items.length > 0) {
+            throw new Error('文件夹不为空，请使用 recursive 选项');
+          }
+        }
+        await this.client.deleteFile(fullPath);
+        console.log(`✅ 文件夹已删除: ${filePath}`);
+      } else {
+        await this.client.deleteFile(fullPath);
+        console.log(`✅ 文件已删除: ${filePath}`);
+      }
+    } catch (error) {
+      console.error(`❌ 删除失败: ${filePath}`, error);
+      throw new Error(`删除失败: ${filePath}`);
+    }
+  }
+  
+  /**
+   * 重命名文件或文件夹
+   */
+  async rename(oldPath: string, newName: string): Promise<void> {
+    const fullOldPath = this.normalizePath(path.join(this.basePath, oldPath));
+    const directory = path.dirname(fullOldPath);
+    const fullNewPath = this.normalizePath(path.join(directory, newName));
+    
+    try {
+      // 检查新名称是否已存在
+      try {
+        await this.client.stat(fullNewPath);
+        throw new Error(`目标名称已存在: ${newName}`);
+      } catch (error: any) {
+        // 如果 stat 失败说明不存在，可以继续
+        if (error.response && error.response.status !== 404) {
+          throw error;
+        }
+      }
+      
+      await this.client.moveFile(fullOldPath, fullNewPath);
+      console.log(`✅ 重命名成功: ${oldPath} -> ${newName}`);
+    } catch (error) {
+      console.error(`❌ 重命名失败: ${oldPath}`, error);
+      throw error;
+    }
+  }
+  
+  /**
+   * 移动文件或文件夹
+   */
+  async move(sourcePath: string, targetPath: string): Promise<void> {
+    const fullSourcePath = this.normalizePath(path.join(this.basePath, sourcePath));
+    const fullTargetPath = this.normalizePath(path.join(this.basePath, targetPath));
+    
+    try {
+      // 检查源文件是否存在
+      await this.client.stat(fullSourcePath);
+      
+      // 检查目标是否已存在
+      try {
+        await this.client.stat(fullTargetPath);
+        throw new Error(`目标路径已存在: ${targetPath}`);
+      } catch (error: any) {
+        if (error.response && error.response.status !== 404) {
+          throw error;
+        }
+      }
+      
+      // 确保目标目录存在
+      const targetDir = this.normalizePath(path.dirname(fullTargetPath));
+      try {
+        await this.client.stat(targetDir);
+      } catch {
+        await this.client.createDirectory(targetDir, { recursive: true });
+      }
+      
+      // 移动文件或文件夹
+      await this.client.moveFile(fullSourcePath, fullTargetPath);
+      console.log(`✅ 移动成功: ${sourcePath} -> ${targetPath}`);
+    } catch (error) {
+      console.error(`❌ 移动失败: ${sourcePath}`, error);
+      throw error;
+    }
+  }
+  
+  /**
    * 检查是否为 ResponseDataDetailed 类型
    */
   private isResponseDataDetailed<T>(value: T | ResponseDataDetailed<T>): value is ResponseDataDetailed<T> {
