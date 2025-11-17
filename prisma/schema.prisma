@@ -23,6 +23,7 @@ model PlatformAccount {
   username       String?  @map("username")      // 用户名/昵称  
   avatar         String?  @map("avatar")        // 头像URL
   followersCount Int?     @map("followers_count") // 粉丝数
+  followingCount Int?     @map("following_count") // 关注数
   totalFavorited Int?     @map("total_favorited") // 获赞数
   description    String?  @map("description")   // 简介
   
@@ -33,6 +34,9 @@ model PlatformAccount {
   uploadTasks    UploadTask[]
   videos         AccountVideo[]
   themeAccounts  ThemeAccount[]  // 主题库关联
+  snapshots      AccountSnapshot[]  // 账号快照
+  summaries      StatisticsSummary[]  // 统计汇总
+  userAnalytics  UserAnalytics[]  // 用户数据分析
 
   @@index([platform])
   @@index([isActive])
@@ -107,6 +111,8 @@ model AccountVideo {
   updatedAt          DateTime @updatedAt @map("updated_at")
 
   account            PlatformAccount @relation(fields: [platformAccountId], references: [id], onDelete: Cascade)
+  snapshots          VideoSnapshot[]  // 视频快照
+  videoAnalytics     VideoAnalytics[]  // 视频数据分析
 
   @@unique([platformAccountId, videoId])
   @@index([platformAccountId])
@@ -163,4 +169,140 @@ model ThemeResourcePath {
   @@index([themeId])
   @@index([libraryId])
   @@map("theme_resource_paths")
+}
+
+// 账号数据快照
+model AccountSnapshot {
+  id                Int      @id @default(autoincrement())
+  accountId         Int      @map("account_id")
+  snapshotTime      DateTime @map("snapshot_time")
+  
+  // 核心指标
+  followersCount    Int      @map("followers_count")    // 粉丝数
+  totalFavorited    Int      @map("total_favorited")    // 总获赞
+  videoCount        Int      @map("video_count")        // 视频总数
+  
+  // 变化量（相比上次快照）
+  followersDelta    Int      @default(0) @map("followers_delta")    // 粉丝增量
+  favoritedDelta    Int      @default(0) @map("favorited_delta")    // 获赞增量
+  videoCountDelta   Int      @default(0) @map("video_count_delta")  // 视频增量
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  
+  account           PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  @@index([accountId, snapshotTime])
+  @@map("account_snapshots")
+}
+
+// 视频数据快照
+model VideoSnapshot {
+  id                Int      @id @default(autoincrement())
+  videoId           Int      @map("video_id")
+  snapshotTime      DateTime @map("snapshot_time")
+  
+  // 核心指标
+  playCount         Int      @default(0) @map("play_count")         // 播放量
+  diggCount         Int      @default(0) @map("digg_count")         // 点赞数
+  commentCount      Int      @default(0) @map("comment_count")      // 评论数
+  shareCount        Int      @default(0) @map("share_count")        // 分享数
+  collectCount      Int      @default(0) @map("collect_count")      // 收藏数
+  
+  // 变化量
+  playDelta         Int      @default(0) @map("play_delta")         // 播放增量
+  diggDelta         Int      @default(0) @map("digg_delta")         // 点赞增量
+  commentDelta      Int      @default(0) @map("comment_delta")      // 评论增量
+  shareDelta        Int      @default(0) @map("share_delta")        // 分享增量
+  collectDelta      Int      @default(0) @map("collect_delta")      // 收藏增量
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  
+  video             AccountVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  
+  @@index([videoId, snapshotTime])
+  @@map("video_snapshots")
+}
+
+// 统计汇总表
+model StatisticsSummary {
+  id                Int      @id @default(autoincrement())
+  accountId         Int?     @map("account_id")          // null表示全局统计
+  periodType        String   @map("period_type")          // daily/weekly/monthly
+  periodStart       DateTime @map("period_start")
+  periodEnd         DateTime @map("period_end")
+  
+  // 汇总数据
+  totalPlays        BigInt   @default(0) @map("total_plays")        // 总播放
+  totalDiggs        BigInt   @default(0) @map("total_diggs")        // 总点赞
+  totalComments     BigInt   @default(0) @map("total_comments")     // 总评论
+  totalShares       BigInt   @default(0) @map("total_shares")       // 总分享
+  totalCollects     BigInt   @default(0) @map("total_collects")     // 总收藏
+  newFollowers      Int      @default(0) @map("new_followers")      // 新增粉丝
+  newVideos         Int      @default(0) @map("new_videos")         // 新发布视频
+  
+  // 平均数据
+  avgPlayPerVideo   Float    @default(0) @map("avg_play_per_video") // 平均播放
+  avgDiggPerVideo   Float    @default(0) @map("avg_digg_per_video") // 平均点赞
+  
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+  
+  account           PlatformAccount? @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  @@unique([accountId, periodType, periodStart])
+  @@index([accountId, periodType, periodStart])
+  @@map("statistics_summary")
+}
+
+// 用户数据分析表
+model UserAnalytics {
+  id              Int      @id @default(autoincrement())
+  accountId       Int      @map("account_id")           // 账号ID
+  
+  // 用户数据
+  followerCount   Int      @default(0) @map("follower_count")    // 粉丝数
+  followingCount  Int      @default(0) @map("following_count")   // 关注数
+  totalLikes      Int      @default(0) @map("total_likes")       // 总获赞数
+  videoCount      Int      @default(0) @map("video_count")       // 视频数量
+  
+  // 分析数据
+  averageViews    Int      @default(0) @map("average_views")     // 平均播放量
+  engagementRate  Float    @default(0) @map("engagement_rate")   // 互动率
+  growthRate      Float    @default(0) @map("growth_rate")       // 增长率(%)
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  account         PlatformAccount @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  
+  @@index([accountId])
+  @@index([createdAt])
+  @@map("user_analytics")
+}
+
+// 视频数据分析表
+model VideoAnalytics {
+  id              Int      @id @default(autoincrement())
+  videoId         Int      @map("video_id")              // 视频ID
+  
+  // 视频数据
+  viewCount       Int      @default(0) @map("view_count")        // 播放量
+  likeCount       Int      @default(0) @map("like_count")        // 点赞数
+  commentCount    Int      @default(0) @map("comment_count")     // 评论数
+  shareCount      Int      @default(0) @map("share_count")       // 分享数
+  collectCount    Int      @default(0) @map("collect_count")     // 收藏数
+  
+  // 分析数据
+  engagementRate  Float    @default(0) @map("engagement_rate")   // 互动率
+  completionRate  Float    @default(0) @map("completion_rate")   // 完成率
+  avgWatchTime    Int      @default(0) @map("avg_watch_time")    // 平均观看时长(秒)
+  
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  
+  video           AccountVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  
+  @@index([videoId])
+  @@index([createdAt])
+  @@map("video_analytics")
 }

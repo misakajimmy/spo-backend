@@ -2,13 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import swaggerUi from 'swagger-ui-express';
 import swaggerJsdoc from 'swagger-jsdoc';
-import { config } from './config';
+import { config, appConfig } from './config';
 import swaggerOptions from './config/swagger';
 import accountRoutes from './routes/account.routes';
 import configRoutes from './routes/config.routes';
 import resourceRoutes from './routes/resource.routes';
 import uploadRoutes from './routes/upload.routes';
 import themeRoutes from './routes/theme.routes';
+import analyticsRoutes from './routes/analytics.routes';
+import { cronJobManager } from './services/cron.service';
 
 // 创建 Express 应用
 const app = express();
@@ -23,12 +25,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Swagger 文档
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
-app.get('/api-docs/swagger.json', (req, res) => {
-  res.setHeader('Content-Type', 'application/json');
-  res.send(swaggerSpec);
-});
-app.use('/api-docs', swaggerUi.serve as unknown as express.RequestHandler, swaggerUi.setup(swaggerSpec) as any);
+if (appConfig.features.enableSwagger) {
+  const swaggerSpec = swaggerJsdoc(swaggerOptions);
+  app.get('/api-docs/swagger.json', (req, res) => {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(swaggerSpec);
+  });
+  app.use('/api-docs', swaggerUi.serve as unknown as express.RequestHandler, swaggerUi.setup(swaggerSpec) as any);
+}
 
 // 路由
 app.use('/api', accountRoutes);
@@ -36,6 +40,7 @@ app.use('/api', configRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/themes', themeRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 /**
  * @swagger
@@ -72,10 +77,32 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 });
 
 // 启动服务器
-app.listen(config.port, () => {
+app.listen(config.port, async () => {
   console.log(`\n🚀 Server is running on http://localhost:${config.port}`);
-  console.log(`📄 API Docs: http://localhost:${config.port}/api-docs`);
-  console.log(`🍪 Cookies: ${config.cookiesDir}\n`);
+  
+  if (appConfig.features.enableSwagger) {
+    console.log(`📄 API Docs: http://localhost:${config.port}/api-docs`);
+  }
+  
+  console.log(`🍪 Cookies: ${config.cookiesDir}`);
+  console.log(`📁 Temp: ${config.tempDir}`);
+  console.log(`📂 Outputs: ${config.outputsDir}`);
+  
+  // 初始化定时任务
+  await cronJobManager.initializeJobs();
+});
+
+// 优雅关闭
+process.on('SIGTERM', () => {
+  console.log('\n🛑 收到 SIGTERM 信号，准备关闭...');
+  cronJobManager.stopAll();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('\n🛑 收到 SIGINT 信号，准备关闭...');
+  cronJobManager.stopAll();
+  process.exit(0);
 });
 
 export default app;

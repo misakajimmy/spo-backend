@@ -63,6 +63,8 @@ export class DouyinUploader extends BaseUploader {
    * 上传视频
    */
   async upload(task: UploadTaskData): Promise<UploadResult> {
+    let videoPath: string | null = null;
+    
     try {
       this.updateProgress('uploading', 0, '开始上传');
       
@@ -70,9 +72,11 @@ export class DouyinUploader extends BaseUploader {
       await this.initBrowser(false);
       this.checkCancelled();
       
-      // 2. 获取视频文件路径
-      const videoPath = await this.getResourcePath(task);
-      this.updateProgress('uploading', 10, '获取视频文件');
+      // 2. 准备上传（获取视频路径 + 填充元数据）
+      const prepared = await this.prepareUpload(task);
+      task = prepared.task;
+      videoPath = prepared.videoPath;
+      this.updateProgress('uploading', 10, '准备上传文件');
       this.checkCancelled();
       
       // 3. 打开上传页面
@@ -145,6 +149,11 @@ export class DouyinUploader extends BaseUploader {
       
     } finally {
       await this.closeBrowser();
+      
+      // 清理临时文件
+      if (videoPath) {
+        await this.cleanupTempFile(videoPath);
+      }
     }
   }
   

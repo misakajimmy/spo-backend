@@ -6,6 +6,8 @@ import {
   ResourceType, 
   LocalResourceConfig 
 } from '../types';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegStatic from 'ffmpeg-static';
 
 export class LocalResourceLibrary extends BaseResourceLibrary {
   private basePath: string;
@@ -63,14 +65,29 @@ export class LocalResourceLibrary extends BaseResourceLibrary {
             // 只添加支持的媒体文件
             const resourceType = this.getResourceType(item.name);
             if (resourceType !== 'folder') {
-              resources.push({
+              const baseInfo: ResourceInfo = {
                 name: item.name,
                 path: itemPath,
                 type: resourceType,
                 size: stats.size,
                 modifiedTime: stats.mtime,
                 extension: ext,
-              });
+              };
+              
+              // 若为视频/音频，尝试提取媒体信息
+              if (resourceType === 'video' || resourceType === 'audio') {
+                try {
+                  const meta = await this.probeMedia(path.join(this.basePath, itemPath));
+                  if (meta) {
+                    if (typeof meta.duration === 'number') baseInfo.duration = meta.duration;
+                    if (meta.resolution) baseInfo.resolution = meta.resolution;
+                  }
+                } catch (e) {
+                  // 忽略单个文件的元数据失败
+                }
+              }
+              
+              resources.push(baseInfo);
             }
           }
         } catch (error) {
@@ -136,10 +153,17 @@ export class LocalResourceLibrary extends BaseResourceLibrary {
       extension: ext || undefined,
     };
     
-    // 如果是视频文件，尝试获取额外信息
-    if (info.type === 'video') {
-      // 这里可以集成 ffprobe 或其他工具获取视频信息
-      // 暂时留空，后续可扩展
+    // 如果是视频/音频文件，尝试获取额外信息（时长、分辨率）
+    if (info.type === 'video' || info.type === 'audio') {
+      try {
+        const meta = await this.probeMedia(fullPath);
+        if (meta) {
+          if (typeof meta.duration === 'number') info.duration = meta.duration;
+          if (meta.resolution) info.resolution = meta.resolution;
+        }
+      } catch {
+        // 忽略失败
+      }
     }
     
     return info;
@@ -184,6 +208,25 @@ export class LocalResourceLibrary extends BaseResourceLibrary {
   async getMimeType(filePath: string): Promise<string> {
     const ext = path.extname(filePath);
     return this.getMimeTypeByExt(ext);
+  }
+
+  // 提取媒体信息（使用 ffprobe）
+  private async probeMedia(fullPath: string): Promise<{ duration?: number; resolution?: { width: number; height: number } } | null> {
+    if (ffmpegStatic) {
+      ffmpeg.setFfmpegPath(ffmpegStatic as unknown as string);
+      // fluent-ffmpeg 会自动寻找 ffprobe，可在缺省情况下依赖系统 ffprobe
+    }
+    return new Promise((resolve) => {
+      ffmpeg.ffprobe(fullPath, (err, data) => {
+        if (err || !data) return resolve(null);
+        const duration = typeof data.format?.duration === 'number' ? data.format.duration : (data.format?.duration ? Number(data.format.duration) : undefined);
+        const videoStream = (data.streams || []).find((s: any) => s.codec_type === 'video');
+        const width = videoStream?.width;
+        const height = videoStream?.height;
+        const resolution = (typeof width === 'number' && typeof height === 'number') ? { width, height } : undefined;
+        resolve({ duration, resolution });
+      });
+    });
   }
   
   /**

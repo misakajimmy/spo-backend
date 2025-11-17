@@ -161,11 +161,12 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, description, accountIds, resourcePaths } = req.body;
+    const { name, description, archiveFolderName, accountIds, resourcePaths } = req.body;
     
     const theme = await themeService.updateTheme(id, {
       name,
       description,
+      archiveFolderName,
       accountIds,
       resourcePaths,
     });

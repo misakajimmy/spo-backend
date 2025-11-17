@@ -143,6 +143,16 @@ export class ThemeService {
         // 2. 获取归档文件夹下的视频(已发布)
         const archivePath = path.join(resourcePath.folderPath, archiveFolderName);
         try {
+          // 先检查归档文件夹是否存在，不存在则创建
+          const library = await ResourceService.getLibraryInstance(resourcePath.libraryId);
+          try {
+            await library.getInfo(archivePath);
+          } catch {
+            // 文件夹不存在，创建它
+            await library.createFolder(archivePath);
+            console.log(`✅ 已创建归档文件夹: ${archivePath}`);
+          }
+          
           const archiveResources = await this.resourceService.browseLibrary(
             resourcePath.libraryId,
             archivePath,
@@ -276,8 +286,8 @@ export class ThemeService {
     
     for (const accountId of options.accountIds) {
       for (const video of videosToPublish) {
-        // 生成标题（如果没有模板则使用文件名）
-        const title = options.title || path.parse(video.name).name;
+        // 生成标题（如果没有模板则传空字符串，由上传器从元数据/文件名读取）
+        const title = options.title || '';
         
         // 创建上传任务
         const task = await this.uploadService.createTask({

@@ -1,5 +1,37 @@
 {
-  "cookiesStoragePath": "./data/cookies",
-  "enableAutoValidation": false,
-  "validationInterval": 60
+  "server": {
+    "port": 5409,
+    "corsOrigin": "http://localhost:5173"
+  },
+  "paths": {
+    "cookiesDir": "./data/cookies",
+    "tempDir": "./temp",
+    "outputsDir": "./data/outputs"
+  },
+  "accounts": {
+    "updateVideoStats": {
+      "enabled": true,
+      "cron": "0 */6 * * *",
+      "comment": "每6小时更新一次视频统计数据"
+    },
+    "refreshCookies": {
+      "enabled": false,
+      "cron": "0 0 * * *",
+      "comment": "每天凌晨刷新Cookie"
+    },
+    "createSnapshots": {
+      "enabled": true,
+      "cron": "0 */6 * * *",
+      "comment": "每6小时创建数据快照"
+    },
+    "calculateSummary": {
+      "enabled": true,
+      "cron": "0 1 * * *",
+      "comment": "每天凌晨1点计算汇总数据"
+    }
+  },
+  "features": {
+    "enableSwagger": true,
+    "enableCronJobs": true
+  }
 }
