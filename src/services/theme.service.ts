@@ -1,4 +1,5 @@
 import { ThemeModel } from '../models/theme.model';
+import { TagModel } from '../models/tag.model';
 import { ResourceService } from '../resources/resource.service';
 import { UploadService } from '../uploaders/upload.service';
 import * as path from 'path';
@@ -24,6 +25,7 @@ export class ThemeService {
     archiveFolderName?: string;
     accountIds?: number[];
     resourcePaths?: Array<{ libraryId: number; folderPath: string }>;
+    tagIds?: number[];
   }) {
     // 创建主题库
     const theme = await ThemeModel.create({
@@ -40,6 +42,11 @@ export class ThemeService {
     // 添加资源路径
     if (data.resourcePaths && data.resourcePaths.length > 0) {
       await ThemeModel.setResourcePaths(theme.id, data.resourcePaths);
+    }
+    
+    // 关联关键词
+    if (data.tagIds && data.tagIds.length > 0) {
+      await TagModel.setThemeTags(theme.id, data.tagIds);
     }
     
     return await ThemeModel.findById(theme.id);
@@ -70,6 +77,7 @@ export class ThemeService {
       archiveFolderName?: string;
       accountIds?: number[];
       resourcePaths?: Array<{ libraryId: number; folderPath: string }>;
+      tagIds?: number[];
     }
   ) {
     // 更新基本信息
@@ -89,6 +97,11 @@ export class ThemeService {
     // 更新资源路径
     if (data.resourcePaths !== undefined) {
       await ThemeModel.setResourcePaths(id, data.resourcePaths);
+    }
+    
+    // 更新关键词关联
+    if (data.tagIds !== undefined) {
+      await TagModel.setThemeTags(id, data.tagIds);
     }
     
     return await ThemeModel.findById(id);
@@ -253,6 +266,8 @@ export class ThemeService {
       title?: string;             // 视频标题模板
       tags?: string[];            // 标签
       scheduledAt?: Date;         // 定时发布时间
+      useTagsAsTitle?: boolean;   // 是否使用关键词生成标题（默认 true）
+      tagCount?: number;          // 关键词数量（默认 5）
     }
   ) {
     const theme = await ThemeModel.findById(themeId);
@@ -283,11 +298,23 @@ export class ThemeService {
     // 创建上传任务
     const tasks = [];
     const autoArchive = options.autoArchive !== false; // 默认 true
+    const useTagsAsTitle = options.useTagsAsTitle !== false; // 默认 true
+    const tagCount = options.tagCount || 5;
     
     for (const accountId of options.accountIds) {
       for (const video of videosToPublish) {
-        // 生成标题（如果没有模板则传空字符串，由上传器从元数据/文件名读取）
-        const title = options.title || '';
+        // 生成标题
+        // 优先级：用户指定标题 > 关键词生成 > 空（由上传器从 metadata/文件名读取）
+        let title = options.title || '';
+        
+        // 如果没有指定标题，尝试从关键词生成
+        if (!title && useTagsAsTitle) {
+          const randomTags = await TagModel.getRandomTagsByThemeId(themeId, tagCount);
+          if (randomTags.length > 0) {
+            // 生成格式：#关键词1 #关键词2 #关键词3
+            title = randomTags.map(tag => `#${tag.name}`).join(' ');
+          }
+        }
         
         // 创建上传任务
         const task = await this.uploadService.createTask({
@@ -306,6 +333,7 @@ export class ThemeService {
           videoPath: video.fullPath,
           libraryId: video.libraryId,
           autoArchive,
+          generatedTitle: title, // 返回生成的标题
         });
       }
     }

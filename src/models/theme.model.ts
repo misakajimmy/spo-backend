@@ -37,6 +37,11 @@ export class ThemeModel {
           },
         },
         resourcePaths: true,
+        themeTags: {
+          include: {
+            tag: true,
+          },
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -65,6 +70,11 @@ export class ThemeModel {
           },
         },
         resourcePaths: true,
+        themeTags: {
+          include: {
+            tag: true,
+          },
+        },
       },
     });
   }

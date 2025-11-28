@@ -263,6 +263,12 @@ router.post('/libraries/:id/test', async (req: Request, res: Response) => {
  *           type: string
  *           enum: [asc, desc]
  *         description: 排序方向
+ *       - in: query
+ *         name: includeMetadata
+ *         schema:
+ *           type: boolean
+ *           default: false
+ *         description: 是否包含视频元数据（title, description, duration, width, height, 等）
  *     responses:
  *       200:
  *         description: 成功
@@ -283,7 +289,7 @@ router.post('/libraries/:id/test', async (req: Request, res: Response) => {
 router.get('/browse/:libraryId', async (req: Request, res: Response) => {
   try {
     const libraryId = parseInt(req.params.libraryId);
-    const { path = '', type, sortBy, sortOrder } = req.query;
+    const { path = '', type, sortBy, sortOrder, includeMetadata } = req.query;
     
     const resources = await resourceService.browseLibrary(
       libraryId,
@@ -291,7 +297,8 @@ router.get('/browse/:libraryId', async (req: Request, res: Response) => {
       {
         type: type as ResourceType,
         sortBy: sortBy as 'name' | 'size' | 'date',
-        sortOrder: sortOrder as 'asc' | 'desc'
+        sortOrder: sortOrder as 'asc' | 'desc',
+        includeMetadata: includeMetadata === 'true' || includeMetadata === '1',
       }
     );
     
@@ -720,6 +727,209 @@ router.get('/download/:libraryId', async (req: Request, res: Response) => {
     
     // 传输文件流
     stream.pipe(res);
+  } catch (err: any) {
+    res.status(500).json(error(err.message, 500));
+  }
+});
+
+// ===== 资源管理 =====
+
+/**
+ * @swagger
+ * /api/resources/rename/{libraryId}:
+ *   put:
+ *     summary: 重命名资源文件
+ *     tags: [Resource Management]
+ *     description: |
+ *       重命名指定资源文件，返回新的路径
+ *       
+ *       **支持的资源库类型:**
+ *       - local: 本地文件系统 ✅
+ *       - webdav: WebDAV 远程存储 ✅
+ *       - smb: SMB/CIFS 网络共享 ❌ (暂不支持)
+ *       - ftp: FTP 服务器 ❌ (暂不支持)
+ *     parameters:
+ *       - in: path
+ *         name: libraryId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 资源库ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - oldPath
+ *               - newName
+ *             properties:
+ *               oldPath:
+ *                 type: string
+ *                 description: 旧路径
+ *                 example: /videos/old-name.mp4
+ *               newName:
+ *                 type: string
+ *                 description: 新文件名(只需文件名，不需路径)
+ *                 example: new-name.mp4
+ *     responses:
+ *       200:
+ *         description: 重命名成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: 文件重命名成功
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     newPath:
+ *                       type: string
+ *                       description: 新的完整路径
+ *                       example: /videos/new-name.mp4
+ *       400:
+ *         description: 参数错误或文件已存在
+ *       404:
+ *         description: 文件不存在
+ *       500:
+ *         description: 重命名失败
+ */
+router.put('/rename/:libraryId', async (req: Request, res: Response) => {
+  try {
+    const libraryId = parseInt(req.params.libraryId);
+    const { oldPath, newName } = req.body;
+    
+    if (!oldPath || !newName) {
+      return res.status(400).json(error('缺少必要参数: oldPath, newName'));
+    }
+    
+    const newPath = await resourceService.renameResource(libraryId, oldPath, newName);
+    res.json(success({ newPath }, '文件重命名成功'));
+  } catch (err: any) {
+    if (err.message.includes('已存在')) {
+      return res.status(400).json(error(err.message, 400));
+    }
+    res.status(500).json(error(err.message, 500));
+  }
+});
+
+/**
+ * @swagger
+ * /api/resources/metadata/{libraryId}:
+ *   put:
+ *     summary: 更新视频元数据
+ *     tags: [Resource Management]
+ *     description: |
+ *       更新视频文件的元数据(标题、描述、作者等)
+ *       
+ *       **重要说明:**
+ *       - 只支持 **local(本地)** 类型的资源库
+ *       - WebDAV/SMB/FTP 等远程资源库不支持此操作
+ *       - 原因: 需要直接修改文件，远程存储需要下载->修改->上传，开销较大
+ *       - 使用 ffmpeg 直接修改元数据，**不重新编码视频**，保持原始质量
+ *       - 处理过程中会生成临时文件，需要足够的磁盘空间
+ *       
+ *       **支持的资源库类型:**
+ *       - local: 本地文件系统 ✅
+ *       - webdav: WebDAV 远程存储 ❌
+ *       - smb: SMB/CIFS 网络共享 ❌
+ *       - ftp: FTP 服务器 ❌
+ *     parameters:
+ *       - in: path
+ *         name: libraryId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: 资源库ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - path
+ *             properties:
+ *               path:
+ *                 type: string
+ *                 description: 视频路径
+ *                 example: /videos/demo.mp4
+ *               title:
+ *                 type: string
+ *                 description: 视频标题
+ *                 example: 我的演示视频
+ *               description:
+ *                 type: string
+ *                 description: 视频描述
+ *                 example: 这是一个演示视频
+ *               artist:
+ *                 type: string
+ *                 description: 作者/创作者
+ *                 example: 张三
+ *               comment:
+ *                 type: string
+ *                 description: 备注/评论
+ *                 example: 使用手机拍摄
+ *     responses:
+ *       200:
+ *         description: 更新成功
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 code:
+ *                   type: integer
+ *                   example: 200
+ *                 message:
+ *                   type: string
+ *                   example: 元数据更新成功
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     success:
+ *                       type: boolean
+ *                       example: true
+ *       400:
+ *         description: 缺少必要参数或不是视频文件
+ *       500:
+ *         description: 更新失败
+ */
+router.put('/metadata/:libraryId', async (req: Request, res: Response) => {
+  try {
+    const libraryId = parseInt(req.params.libraryId);
+    const { path, title, description, artist, comment } = req.body;
+    
+    if (!path) {
+      return res.status(400).json(error('缺少必要参数: path'));
+    }
+    
+    // 检查是否为视频文件
+    const info = await resourceService.getResourceInfo(libraryId, path);
+    if (info.type !== 'video') {
+      return res.status(400).json(error('只能更新视频文件的元数据'));
+    }
+    
+    // 检查是否至少提供了一个元数据字段
+    if (!title && !description && !artist && !comment) {
+      return res.status(400).json(error('至少需要提供一个元数据字段'));
+    }
+    
+    const metadata: any = {};
+    if (title) metadata.title = title;
+    if (description) metadata.description = description;
+    if (artist) metadata.artist = artist;
+    if (comment) metadata.comment = comment;
+    
+    const success_result = await resourceService.updateVideoMetadata(libraryId, path, metadata);
+    res.json(success({ success: success_result }, '元数据更新成功'));
   } catch (err: any) {
     res.status(500).json(error(err.message, 500));
   }

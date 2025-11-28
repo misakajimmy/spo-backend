@@ -51,7 +51,7 @@ const themeService = new ThemeService();
  */
 router.post('/', async (req: Request, res: Response) => {
   try {
-    const { name, description, accountIds, resourcePaths } = req.body;
+    const { name, description, accountIds, resourcePaths, tagIds } = req.body;
     
     if (!name) {
       return res.status(400).json(error('缺少主题库名称'));
@@ -62,6 +62,7 @@ router.post('/', async (req: Request, res: Response) => {
       description,
       accountIds,
       resourcePaths,
+      tagIds,
     });
     
     res.json(success(theme, '主题库创建成功'));
@@ -161,7 +162,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.put('/:id', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { name, description, archiveFolderName, accountIds, resourcePaths } = req.body;
+    const { name, description, archiveFolderName, accountIds, resourcePaths, tagIds } = req.body;
     
     const theme = await themeService.updateTheme(id, {
       name,
@@ -169,6 +170,7 @@ router.put('/:id', async (req: Request, res: Response) => {
       archiveFolderName,
       accountIds,
       resourcePaths,
+      tagIds,
     });
     
     res.json(success(theme, '主题库更新成功'));
@@ -481,7 +483,7 @@ router.get('/:id/statistics', async (req: Request, res: Response) => {
 router.post('/:id/batch-publish', async (req: Request, res: Response) => {
   try {
     const id = parseInt(req.params.id);
-    const { accountIds, videoPaths, autoArchive, title, tags } = req.body;
+    const { accountIds, videoPaths, autoArchive, title, tags, useTagsAsTitle, tagCount } = req.body;
     
     const result = await themeService.batchPublishThemeVideos(id, {
       accountIds,
@@ -489,6 +491,8 @@ router.post('/:id/batch-publish', async (req: Request, res: Response) => {
       autoArchive,
       title,
       tags,
+      useTagsAsTitle,
+      tagCount,
     });
     
     res.json(success(result, '批量发布任务已创建'));

@@ -9,6 +9,7 @@ import configRoutes from './routes/config.routes';
 import resourceRoutes from './routes/resource.routes';
 import uploadRoutes from './routes/upload.routes';
 import themeRoutes from './routes/theme.routes';
+import tagRoutes from './routes/tag.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import { cronJobManager } from './services/cron.service';
 
@@ -40,6 +41,7 @@ app.use('/api', configRoutes);
 app.use('/api/resources', resourceRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/themes', themeRoutes);
+app.use('/api/tags', tagRoutes);
 app.use('/api/analytics', analyticsRoutes);
 
 /**

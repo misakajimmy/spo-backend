@@ -20,6 +20,7 @@ export interface ResourceInfo {
     height: number;
   };
   thumbnail?: string;     // 缩略图URL/路径
+  metadata?: object;
 }
 
 // 资源库接口（只读）

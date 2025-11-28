@@ -129,6 +129,10 @@ const swaggerOptions: swaggerJsdoc.Options = {
                 width: { type: 'integer' },
                 height: { type: 'integer' }
               }
+            },
+            metaData: {
+              type: 'object',
+              description: '媒体元数据',
             }
           }
         },

@@ -83,18 +83,9 @@ export class WebDAVResourceLibrary extends BaseResourceLibrary {
                 extension: ext || undefined,
               };
               
-              if (resourceType === 'video' || resourceType === 'audio') {
-                try {
-                  const accessUrl = await this.getAccessPath(itemPath);
-                  const meta = await this.probeMedia(accessUrl);
-                  if (meta) {
-                    if (typeof meta.duration === 'number') baseInfo.duration = meta.duration;
-                    if (meta.resolution) baseInfo.resolution = meta.resolution;
-                  }
-                } catch (e) {
-                  // 忽略单个文件的元数据失败
-                }
-              }
+              // WebDAV 不支持通过 ffprobe 探测远程视频元数据
+              // 因为 ffprobe 需要 seek 到文件末尾读取 moov atom，而 WebDAV 流式读取不支持
+              // 如果需要元数据，可以考虑下载文件后再探测
               
               resources.push(baseInfo);
             }
@@ -167,19 +158,8 @@ export class WebDAVResourceLibrary extends BaseResourceLibrary {
         extension: ext || undefined,
       };
       
-      // 如果是视频/音频文件，尝试获取额外信息
-      if (info.type === 'video' || info.type === 'audio') {
-        try {
-          const accessUrl = await this.getAccessPath(filePath);
-          const meta = await this.probeMedia(accessUrl);
-          if (meta) {
-            if (typeof meta.duration === 'number') info.duration = meta.duration;
-            if (meta.resolution) info.resolution = meta.resolution;
-          }
-        } catch {
-          // 忽略失败
-        }
-      }
+      // WebDAV 不支持通过 ffprobe 探测远程视频元数据
+      // 因为 ffprobe 需要 seek 到文件末尾读取 moov atom，而 WebDAV 流式读取不支持
       
       return info;
     } catch (error) {
@@ -189,11 +169,29 @@ export class WebDAVResourceLibrary extends BaseResourceLibrary {
   }
   
   async getAccessPath(filePath: string): Promise<string> {
-    // 返回 WebDAV URL
+    // 返回带认证信息的 WebDAV URL
     const fullPath = this.normalizePath(path.join(this.basePath, filePath));
     // 确保 URL 格式正确
     const urlPath = fullPath.replace(/\/+/g, '/');
-    return `${this.url}${urlPath}`;
+    
+    // 在 URL 中嵌入认证信息以支持 ffmpeg 等工具访问
+    // 手动构建 URL，避免自动编码导致的问题
+    try {
+      const urlObj = new URL(this.url);
+      const protocol = urlObj.protocol; // http: 或 https:
+      const host = urlObj.host; // 包含端口号
+      
+      if (this.username && this.password) {
+        // 只对用户名和密码进行编码，保持路径原样
+        const encodedUser = encodeURIComponent(this.username);
+        const encodedPass = encodeURIComponent(this.password);
+        return `${protocol}//${encodedUser}:${encodedPass}@${host}${urlPath}`;
+      }
+      return `${protocol}//${host}${urlPath}`;
+    } catch (e) {
+      console.warn('解析 URL 失败,返回原始 URL:', e);
+      return `${this.url}${urlPath}`;
+    }
   }
   
   async getThumbnail(filePath: string): Promise<string | Buffer> {
@@ -235,14 +233,36 @@ export class WebDAVResourceLibrary extends BaseResourceLibrary {
     if (ffmpegStatic) {
       ffmpeg.setFfmpegPath(ffmpegStatic as unknown as string);
     }
+    
     return new Promise((resolve) => {
-      ffmpeg.ffprobe(input, (err, data) => {
-        if (err || !data) return resolve(null);
-        const duration = typeof data.format?.duration === 'number' ? data.format.duration : (data.format?.duration ? Number(data.format.duration) : undefined);
+      // 创建 ffmpeg 命令，直接使用包含认证信息的 URL
+      // getAccessPath 已经在 URL 中嵌入了认证信息
+      const command = ffmpeg()
+        .input(input)
+        .inputOptions(['-timeout', '10000000']); // 10秒超时 (微秒)
+      
+      // 使用 ffprobe
+      command.ffprobe((err, data) => {
+        if (err) {
+          console.warn(`ffprobe 探测失败: ${input}`, err.message);
+          return resolve(null);
+        }
+        
+        if (!data) {
+          return resolve(null);
+        }
+        
+        const duration = typeof data.format?.duration === 'number' 
+          ? data.format.duration 
+          : (data.format?.duration ? Number(data.format.duration) : undefined);
+        
         const videoStream = (data.streams || []).find((s: any) => s.codec_type === 'video');
         const width = videoStream?.width;
         const height = videoStream?.height;
-        const resolution = (typeof width === 'number' && typeof height === 'number') ? { width, height } : undefined;
+        const resolution = (typeof width === 'number' && typeof height === 'number') 
+          ? { width, height } 
+          : undefined;
+        
         resolve({ duration, resolution });
       });
     });

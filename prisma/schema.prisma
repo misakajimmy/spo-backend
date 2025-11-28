@@ -120,7 +120,7 @@ model AccountVideo {
 }
 
 // 主题库
-model Theme {
+ model Theme {
   id               Int      @id @default(autoincrement())
   name             String   // 主题库名称
   description      String?  // 主题库简介
@@ -132,6 +132,7 @@ model Theme {
   // 关联
   themeAccounts    ThemeAccount[]     // 关联的账号
   resourcePaths    ThemeResourcePath[] // 资源路径
+  themeTags        ThemeTag[]         // 关联的关键词
   
   @@map("themes")
 }
@@ -305,4 +306,34 @@ model VideoAnalytics {
   @@index([videoId])
   @@index([createdAt])
   @@map("video_analytics")
+}
+
+// 关键词/标签表
+model Tag {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique // 关键词名称(不带#)
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  
+  themeTags ThemeTag[]  // 关联的主题库
+  
+  @@map("tags")
+}
+
+// 主题库与关键词的关联表(多对多)
+model ThemeTag {
+  id        Int      @id @default(autoincrement())
+  themeId   Int      @map("theme_id")
+  tagId     Int      @map("tag_id")
+  
+  createdAt DateTime @default(now()) @map("created_at")
+  
+  theme     Theme @relation(fields: [themeId], references: [id], onDelete: Cascade)
+  tag       Tag   @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  @@unique([themeId, tagId])
+  @@index([themeId])
+  @@index([tagId])
+  @@map("theme_tags")
 }
